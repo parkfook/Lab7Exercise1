@@ -9,7 +9,9 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -19,21 +21,71 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.concurrent.TimeUnit;
 
 
 public class MainActivity extends ActionBarActivity {
+    int oldcase =1 ;
+    int newcase ;
+
+double ts,tn;
+    Long tsLong,tnLong,tsLongmin,tnLongmin;
+
+
+    //1min = 60000 milli
+
+    public void savetime(){
+        tsLong = System.currentTimeMillis();
+        //tsLongmin = TimeUnit.MILLISECONDS.toMinutes(tsLong);
+        //ts = tsLong.doubleValue();
+
+    }
+
+    public boolean checktime(){
+        tnLong = System.currentTimeMillis();
+        //tnLongmin = TimeUnit.MILLISECONDS.toMinutes(tnLong);
+        //tn = tnLong.doubleValue();
+
+
+        if( tnLong-tsLong < 5000 && oldcase == newcase){
+
+
+
+            Toast toast = Toast.makeText(getApplicationContext(), "please try again later in 1 minute", Toast.LENGTH_SHORT);
+            toast.show();
+
+            return false;
+        }
+
+        else return true;
+
+
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        savetime();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         WeatherTask w = new WeatherTask();
+        if(newcase == 1) {
+            savetime();
         w.execute("http://ict.siit.tu.ac.th/~cholwich/bangkok.json", "Bangkok Weather");
+    }
+        else if ( newcase == 2){
+            savetime();
+            w.execute("http://ict.siit.tu.ac.th/~cholwich/pathumthani.json", "Pathumthani Weather");
+        }
+
+        else if (newcase == 3){
+                savetime();
+            w.execute("http://ict.siit.tu.ac.th/~cholwich/nonthaburi.json", "Nonthaburi Weather");
+        }
     }
 
     public void buttonClicked(View v) {
@@ -41,9 +93,47 @@ public class MainActivity extends ActionBarActivity {
         WeatherTask w = new WeatherTask();
         switch (id) {
             case R.id.btBangkok:
-                w.execute("http://ict.siit.tu.ac.th/~cholwich/bangkok.json", "Bangkok Weather");
+                newcase = 1;
+                checktime();
+                if(checktime() == true) {
+                    w.execute("http://ict.siit.tu.ac.th/~cholwich/bangkok.json", "Bangkok Weather");
+                    //newcase = 1;
+                    savetime();
+                    oldcase = newcase ;
+
+                }
+
                 break;
+
+
+            case R.id.btPathum:
+                newcase = 2;
+                checktime();
+                if(checktime() == true){
+                w.execute("http://ict.siit.tu.ac.th/~cholwich/pathumthani.json", "Phatumthani Weather");
+
+
+                //newcase = 2;
+                savetime();
+                    oldcase = newcase ;
+
+                }
+
+                break;
+            case R.id.btNon:
+                newcase = 3;
+                checktime();
+                if(checktime() == true) {
+                w.execute("http://ict.siit.tu.ac.th/~cholwich/nonthaburi.json", "Nonthaburi Weather");
+                //newcase = 3;
+                savetime();
+                    oldcase = newcase ;
+
+                }
+                break;
+
         }
+
     }
 
     @Override
@@ -71,9 +161,11 @@ public class MainActivity extends ActionBarActivity {
     class WeatherTask extends AsyncTask<String, Void, Boolean> {
         String errorMsg = "";
         ProgressDialog pDialog;
-        String title;
+        String title,cloud;
 
-        double windSpeed;
+        double windSpeed,ktemp,ktempmin,ktempmax,temp,tempmin,tempmax,humid;
+
+
 
         @Override
         protected void onPreExecute() {
@@ -104,6 +196,21 @@ public class MainActivity extends ActionBarActivity {
                     //Start parsing JSON
                     JSONObject jWeather = new JSONObject(buffer.toString());
                     JSONObject jWind = jWeather.getJSONObject("wind");
+                    JSONObject jtemp = jWeather.getJSONObject("main");
+                    JSONArray jcloud = jWeather.getJSONArray("weather");
+                    ktemp = jtemp.getDouble("temp");
+                    ktempmin = jtemp.getDouble("temp_min");
+                    ktempmax = jtemp.getDouble("temp_max");
+                    humid = jtemp.getDouble("humidity");
+
+                    cloud = jcloud.getJSONObject(0).getString("main");
+
+                    temp = ktemp - 273.15 ;
+                    tempmin = ktempmin -273.15;
+                    tempmax = ktempmax - 273.15 ;
+
+
+
                     windSpeed = jWind.getDouble("speed");
                     errorMsg = "";
                     return true;
@@ -126,7 +233,7 @@ public class MainActivity extends ActionBarActivity {
 
         @Override
         protected void onPostExecute(Boolean result) {
-            TextView tvTitle, tvWeather, tvWind;
+            TextView tvTemp,tvTitle, tvWeather, tvWind,tvHumid;
             if (pDialog.isShowing()) {
                 pDialog.dismiss();
             }
@@ -134,10 +241,20 @@ public class MainActivity extends ActionBarActivity {
             tvTitle = (TextView)findViewById(R.id.tvTitle);
             tvWeather = (TextView)findViewById(R.id.tvWeather);
             tvWind = (TextView)findViewById(R.id.tvWind);
+            tvTemp = (TextView)findViewById(R.id.tvTemp);
+            tvHumid = (TextView)findViewById(R.id.tvHumid);
+
 
             if (result) {
                 tvTitle.setText(title);
                 tvWind.setText(String.format("%.1f", windSpeed));
+                tvTemp.setText(String.format("%.1f" + "(max = " + "%.1f" + ", min = " + "%.1f" + ")" , temp,tempmax,tempmin));
+                tvHumid.setText(String.format("%.1f",humid));
+                tvWeather.setText(String.format("%s",cloud));
+
+
+
+
             }
             else {
                 tvTitle.setText(errorMsg);
